@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>have a happy day</title>
+    <style>
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        body { 
+            width: 100vw; 
+            height: 100vh; 
+            background: radial-gradient(circle at center, #250e2d, #0d0312);
+            background-size: 400% 400%;
+            animation: bgGradient 20s ease infinite;
+            overflow: hidden; 
+            cursor: crosshair; 
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .heart-trail-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .heart {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border-radius: 0;
+            opacity: 0.95;
+            pointer-events: none;
+            border: 1px solid rgba(255,255,255,0.35);
+            background: linear-gradient(135deg, #ff99cc, #ff3e78);
+            box-shadow: 0 0 12px var(--heart-color), 0 0 22px rgba(255,255,255,0.45), 0 0 32px rgba(255,255,255,0.25);
+            transition: box-shadow 0.2s ease, opacity 0.3s ease;
+            z-index: 2;
+        }
+        .heart::before, .heart::after {
+            content: "";
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.35);
+            background: inherit;
+        }
+        .heart::before { top: -15px; left: 0; }
+        .heart::after { left: -15px; top: 0; }
+        @keyframes bgGradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes popIn {
+            0% { transform: rotate(-45deg) scale(0.3); opacity: 0; }
+            60% { transform: rotate(-45deg) scale(1.3); opacity: 1; }
+            100% { transform: rotate(-45deg) scale(1); opacity: 0.95; }
+        }
+        @keyframes trailFade {
+            0% { opacity: 0.8; transform: rotate(-45deg) scale(0.9); }
+            100% { opacity: 0; transform: rotate(-45deg) scale(0.6); }
+        }
+    </style>
+</head>
+<body>
+    <div class="heart-trail-container"></div>
+    <script>
+        const HEART_COUNT = 20; // 缩减为20个初始爱心
+        const HEART_SIZE = 30;
+        const GRAVITY = 0.12; // 优化下落速度，减少停留
+        const BOUNCE = 0.82;
+        const MOUSE_FORCE = 7.5;
+        const MOUSE_RANGE = 160;
+        const FRICTION = 0.985; // 优化运动顺滑度
+        const MAX_HEARTS = 30; // 限制最大爱心数，避免卡顿
+        const TRAIL_COUNT = 1; // 减少拖尾数量，避免拖沓
+        const TRAIL_DURATION = 0.2; // 缩短拖尾持续时间
+        const COLORS = [
+            '#ff7eb3', '#ff3e78', '#ff99cc', '#ff66a3', '#ff4d94',
+            '#f95c8d', '#f74680', '#e83e7c', '#d9367a', '#c72e76'
+        ];
+        const hearts = [];
+        let mouseX = window.innerWidth / 2;
+        let mouseY = window.innerHeight / 2;
+        const trailContainer = document.querySelector('.heart-trail-container');
+
+        function adjustColor(color, amount) {
+            return '#' + color.slice(1).replace(/../g, hex => {
+                const num = parseInt(hex, 16) + amount;
+                const clamped = Math.max(0, Math.min(255, num));
+                return clamped.toString(16).padStart(2, '0');
+            });
+        }
+        function getRandomHeartStyle() {
+            const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+            const lightColor = adjustColor(color, 25);
+            const darkColor = adjustColor(color, -25);
+            return {
+                background: `linear-gradient(135deg, ${lightColor}, ${darkColor})`,
+                color: color
+            };
+        }
+        function createHeartTrail(x, y, color) {
+            for (let i = 0; i < TRAIL_COUNT; i++) {
+                const trail = document.createElement('div');
+                trail.classList.add('heart');
+                trail.style.background = `linear-gradient(135deg, ${adjustColor(color, 15)}, ${color})`;
+                trail.style.setProperty('--heart-color', color);
+                trail.style.opacity = 0.8 - (i * 0.2);
+                trail.style.transform = `rotate(-45deg) scale(0.9 - (i * 0.1))`;
+                trail.style.left = `${x - HEART_SIZE / 2}px`;
+                trail.style.top = `${y - HEART_SIZE / 2}px`;
+                trail.style.animation = `trailFade ${TRAIL_DURATION}s ease forwards`;
+                trailContainer.appendChild(trail);
+                setTimeout(() => trail.remove(), TRAIL_DURATION * 1000);
+            }
+        }
+        function createHeart(x, y, isClick = false) {
+            const heart = document.createElement('div');
+            heart.classList.add('heart');
+            const style = getRandomHeartStyle();
+            heart.style.background = style.background;
+            heart.style.setProperty('--heart-color', style.color);
+            document.body.appendChild(heart);
+            const speed = isClick ? 18 + Math.random() * 12 : 11 + Math.random() * 9;
+            const angle = Math.random() * Math.PI * 2;
+            if (isClick) heart.style.animation = 'popIn 0.6s ease forwards';
+            else heart.style.transform = 'rotate(-45deg)';
+            const heartObj = {
+                element: heart, x, y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                width: HEART_SIZE, height: HEART_SIZE,
+                color: style.color, isClick,
+                lastX: x, lastY: y
+            };
+            hearts.push(heartObj);
+            return heartObj;
+        }
+        function initHearts() {
+            const centerX = window.innerWidth / 2;
+            const centerY = window.innerHeight / 2;
+            for (let i = 0; i < HEART_COUNT; i++) {
+                // 初始位置轻微分散，避免堆叠，确保每个爱心都动
+                const offsetX = (Math.random() - 0.5) * 40;
+                const offsetY = (Math.random() - 0.5) * 40;
+                createHeart(centerX + offsetX, centerY + offsetY);
+            }
+        }
+        document.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+            hearts.forEach(heart => {
+                const dx = heart.x - mouseX;
+                const dy = heart.y - mouseY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance < MOUSE_RANGE / 3) heart.element.style.boxShadow = `0 0 18px ${heart.color}, 0 0 30px ${heart.color}90, 0 0 45px ${heart.color}60`;
+                else if (distance < MOUSE_RANGE / 2) heart.element.style.boxShadow = `0 0 14px ${heart.color}, 0 0 25px ${heart.color}80, 0 0 38px ${heart.color}40`;
+                else if (distance < MOUSE_RANGE) heart.element.style.boxShadow = `0 0 10px ${heart.color}, 0 0 20px ${heart.color}70, 0 0 32px ${heart.color}30`;
+                else heart.element.style.boxShadow = `0 0 8px ${heart.color}, 0 0 15px ${heart.color}60, 0 0 25px ${heart.color}20`;
+            });
+        });
+        document.addEventListener('click', (e) => {
+            for (let i = 0; i < 3; i++) createHeart(e.clientX, e.clientY, true);
+        });
+        function updateHearts() {
+            if (hearts.length > MAX_HEARTS) {
+                const removeCount = hearts.length - MAX_HEARTS;
+                for (let i = 0; i < removeCount; i++) {
+                    const heart = hearts.shift();
+                    heart.element.style.opacity = 0;
+                    setTimeout(() => heart.element.remove(), 300);
+                }
+            }
+            hearts.forEach((heart, index) => {
+                heart.lastX = heart.x;
+                heart.lastY = heart.y;
+                heart.vy += GRAVITY;
+                heart.vx *= FRICTION;
+                heart.vy *= FRICTION;
+                const dx = heart.x - mouseX;
+                const dy = heart.y - mouseY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance < MOUSE_RANGE && distance > 0) {
+                    const force = (MOUSE_RANGE - distance) / 10;
+                    heart.vx += (dx / distance) * force * MOUSE_FORCE;
+                    heart.vy += (dy / distance) * force * MOUSE_FORCE;
+                }
+                for (let i = index + 1; i < hearts.length; i++) {
+                    const other = hearts[i];
+                    const dxCol = heart.x - other.x;
+                    const dyCol = heart.y - other.y;
+                    const distanceCol = Math.sqrt(dxCol * dxCol + dyCol * dyCol);
+                    const minDistance = (heart.width + other.width) / 2 - 5;
+                    if (distanceCol < minDistance) {
+                        const nx = dxCol / distanceCol;
+                        const ny = dyCol / distanceCol;
+                        const vxRel = heart.vx - other.vx;
+                        const vyRel = heart.vy - other.vy;
+                        const speedRel = vxRel * nx + vyRel * ny;
+                        if (speedRel > 0) return;
+                        const impulse = 2 * speedRel / 2;
+                        heart.vx -= impulse * nx * BOUNCE;
+                        heart.vy -= impulse * ny * BOUNCE;
+                        other.vx += impulse * nx * BOUNCE;
+                        other.vy += impulse * ny * BOUNCE;
+                        const overlap = minDistance - distanceCol;
+                        heart.x += nx * overlap / 2;
+                        heart.y += ny * overlap / 2;
+                        other.x -= nx * overlap / 2;
+                        other.y -= ny * overlap / 2;
+                    }
+                }
+                if (heart.x - heart.width / 2 < 0) { heart.x = heart.width / 2; heart.vx *= -BOUNCE * 0.8; }
+                if (heart.x + heart.width / 2 > window.innerWidth) { heart.x = window.innerWidth - heart.width / 2; heart.vx *= -BOUNCE * 0.8; }
+                if (heart.y - heart.height / 2 < 0) { heart.y = heart.height / 2; heart.vy *= -BOUNCE * 0.8; }
+                if (heart.y + heart.height / 2 > window.innerHeight) { heart.y = window.innerHeight - heart.height / 2; heart.vy *= -BOUNCE * 0.8; }
+                heart.x += heart.vx;
+                heart.y += heart.vy;
+                const scale = 0.88 + Math.random() * 0.22;
+                if (!heart.isClick) heart.element.style.transform = `rotate(-45deg) scale(${scale})`;
+                heart.element.style.left = `${heart.x - heart.width / 2}px`;
+                heart.element.style.top = `${heart.y - heart.height / 2}px`;
+                if (Math.abs(heart.vx) > 0.5 || Math.abs(heart.vy) > 0.5) createHeartTrail(heart.x, heart.y, heart.color);
+            });
+            requestAnimationFrame(updateHearts);
+        }
+        window.addEventListener('load', () => { initHearts(); setTimeout(updateHearts, 250); });
+        window.addEventListener('resize', () => {
+            const centerX = window.innerWidth / 2;
+            const centerY = window.innerHeight / 2;
+            hearts.forEach(heart => {
+                heart.x = centerX + (heart.x - window.innerWidth / 2) * 0.92;
+                heart.y = centerY + (heart.y - window.innerHeight / 2) * 0.92;
+            });
+        });
+    </script>
+</body>
+</html>s
